@@ -38,6 +38,7 @@ requirements:
   host:
     - r-base
     - gtk2
+    - glib
   run:
     - r-base
     - {{ native }}gcc-libs         # [win]
