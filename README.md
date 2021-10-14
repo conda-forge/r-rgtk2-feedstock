@@ -3,7 +3,7 @@ About r-rgtk2
 
 Home: http://www.ggobi.org/rgtk2, http://www.omegahat.net
 
-Package license: GPL
+Package license: GPL-2.0-or-later
 
 Feedstock license: [BSD-3-Clause](https://github.com/conda-forge/r-rgtk2-feedstock/blob/master/LICENSE.txt)
 
