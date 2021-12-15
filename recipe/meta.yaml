@@ -1,4 +1,4 @@
-{% set version = "2.20.36.2" %}
+{% set version = "2.20.36.3" %}
 {% set posix = 'm2-' if win else '' %}
 {% set native = 'm2w64-' if win else '' %}
 
@@ -10,7 +10,7 @@ source:
   url:
     - {{ cran_mirror }}/src/contrib/RGtk2_{{ version }}.tar.gz
     - {{ cran_mirror }}/src/contrib/Archive/RGtk2/RGtk2_{{ version }}.tar.gz
-  sha256: 36b964da57f38fc95db50cb59d6f260b6e7a5bee3c77dfd8c522d7ee071c6ad4
+  sha256: 015021bed60a6df1cf092533800974455703467e300ade549b837cc950496ccd
 
 build:
   merge_build_host: true  # [win]
