@@ -16,7 +16,7 @@ build:
   merge_build_host: true  # [win]
   # GTK2 is not available under win
   skip: true  # [win]
-  number: 0
+  number: 1
   rpaths:
     - lib/R/lib/
     - lib/
