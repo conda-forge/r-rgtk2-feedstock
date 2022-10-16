@@ -11,6 +11,8 @@ source:
     - {{ cran_mirror }}/src/contrib/RGtk2_{{ version }}.tar.gz
     - {{ cran_mirror }}/src/contrib/Archive/RGtk2/RGtk2_{{ version }}.tar.gz
   sha256: 015021bed60a6df1cf092533800974455703467e300ade549b837cc950496ccd
+  patches:
+    - 0001-replace-usage-of-PROBLEM-ERROR-macros-with-Rf_error-.patch
 
 build:
   merge_build_host: true  # [win]

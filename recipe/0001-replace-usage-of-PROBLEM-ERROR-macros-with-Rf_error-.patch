@@ -1,0 +1,554 @@
+From c44bb44b6846f45372674dc24946abb15b00d426 Mon Sep 17 00:00:00 2001
+From: larman <michafla@gene.com>
+Date: Sat, 23 Oct 2021 16:24:16 -0700
+Subject: [PATCH] replace usage of PROBLEM/ERROR macros with Rf_error() calls
+
+remove some dead code
+---
+ RGtk2/R/coerce.R                    |  16 ----
+ RGtk2/inst/include/RGtk2/RSCommon.h |  20 -----
+ RGtk2/src/RSCommon.h                |  20 -----
+ RGtk2/src/cairoConversion.c         |   6 +-
+ RGtk2/src/conversion.c              |  35 ++------
+ RGtk2/src/gdkManuals.c              |   5 +-
+ RGtk2/src/glib.c                    |   3 +-
+ RGtk2/src/gobject.c                 |  55 +++++-------
+ RGtk2/src/pangoConversion.c         |   3 +-
+ RGtk2/src/utils.c                   | 124 ----------------------------
+ 10 files changed, 32 insertions(+), 255 deletions(-)
+
+diff --git a/RGtk2/R/coerce.R b/RGtk2/R/coerce.R
+index 25e9c467..fa084353 100644
+--- a/RGtk2/R/coerce.R
++++ b/RGtk2/R/coerce.R
+@@ -9,19 +9,3 @@ function(x, type, fields)
+   class(struct) <- type
+   struct
+ }
+-if (FALSE) {
+-as.enum <-
+-function(val, type)
+-{
+-  if(inherits(val, type))
+-    return(val)
+-  .Call("R_asEnum", val, type, PACKAGE="RGtk2")
+-}
+-flag <-
+-function(val, type)
+-{
+-  if(inherits(val, type))
+-    return(val)
+-  .Call("R_asFlag", val, type, PACKAGE="RGtk2")
+-}
+-}
+diff --git a/RGtk2/inst/include/RGtk2/RSCommon.h b/RGtk2/inst/include/RGtk2/RSCommon.h
+index 0fbacf88..22a026df 100644
+--- a/RGtk2/inst/include/RGtk2/RSCommon.h
++++ b/RGtk2/inst/include/RGtk2/RSCommon.h
+@@ -140,26 +140,6 @@ extern "C" {
+    /* SET_CLASS and SET_NAMES have been moved to Rdefines.h in the R distribution.*/
+   #endif  /* of defined(_R_) */
+ 
+-
+-
+-  #if defined(_Octave_)
+-
+-  #include <octave/oct.h>
+-  extern char error_buf[];
+-  #define PROBLEM sprintf(error_buf,
+-  #define ERROR  ); error(error_buf)
+-
+-  #define STRING_VALUE(a)  a.all_strings()[0].c_str()
+-
+-  #define GET_LENGTH(a)  getLength(a)
+-
+-  #define LOCAL_EVALUATOR /**/
+-  #define COPY_TO_USER_STRING(a) strdup(a) /*XXX*/
+-
+-  #endif /* end of defined(_Octave_)*/
+-
+-
+-
+ #ifdef __cplusplus 
+ }
+ #endif
+diff --git a/RGtk2/src/RSCommon.h b/RGtk2/src/RSCommon.h
+index 0fbacf88..22a026df 100644
+--- a/RGtk2/src/RSCommon.h
++++ b/RGtk2/src/RSCommon.h
+@@ -140,26 +140,6 @@ extern "C" {
+    /* SET_CLASS and SET_NAMES have been moved to Rdefines.h in the R distribution.*/
+   #endif  /* of defined(_R_) */
+ 
+-
+-
+-  #if defined(_Octave_)
+-
+-  #include <octave/oct.h>
+-  extern char error_buf[];
+-  #define PROBLEM sprintf(error_buf,
+-  #define ERROR  ); error(error_buf)
+-
+-  #define STRING_VALUE(a)  a.all_strings()[0].c_str()
+-
+-  #define GET_LENGTH(a)  getLength(a)
+-
+-  #define LOCAL_EVALUATOR /**/
+-  #define COPY_TO_USER_STRING(a) strdup(a) /*XXX*/
+-
+-  #endif /* end of defined(_Octave_)*/
+-
+-
+-
+ #ifdef __cplusplus 
+ }
+ #endif
+diff --git a/RGtk2/src/cairoConversion.c b/RGtk2/src/cairoConversion.c
+index 9830ca58..47368899 100644
+--- a/RGtk2/src/cairoConversion.c
++++ b/RGtk2/src/cairoConversion.c
+@@ -42,8 +42,7 @@ asRCairoPath(cairo_path_t *path)
+ 			PROTECT(s_data_el = NEW_INTEGER(0));
+ 		break;
+ 		default:
+-			PROBLEM "Converting Cairo path: did not understand type %d", data->header.type
+-			ERROR;
++		    Rf_error("Converting Cairo path: did not understand type %d", data->header.type);
+ 		}
+ 		setAttrib(s_data_el, install("type"),
+ 			  PROTECT(asRInteger(data->header.type)));
+@@ -92,8 +91,7 @@ asCCairoPath(USER_OBJECT_ s_path)
+ 				points = 0;
+ 			break;
+ 			default:
+-				PROBLEM "Converting Cairo path: did not understand type %d", type
+-				ERROR;
++			    Rf_error("Converting Cairo path: did not understand type %d", type);
+ 		}
+ 		len = points + 1; /* have to include header */
+ 		element = (cairo_path_data_t*)R_alloc(len, sizeof(cairo_path_data_t));
+diff --git a/RGtk2/src/conversion.c b/RGtk2/src/conversion.c
+index 6f011b61..0667bed5 100644
+--- a/RGtk2/src/conversion.c
++++ b/RGtk2/src/conversion.c
+@@ -86,8 +86,7 @@ asREnum(int value, GType etype)
+     INTEGER_DATA(ans)[0] = value;
+ 
+     if (!(evalue = g_enum_get_value(g_type_class_ref(etype), value))) {
+-        PROBLEM "Unknown enum value %d", value
+-        ERROR;
++        Rf_error("Unknown enum value %d", value);
+     }
+ 
+     PROTECT(names = NEW_CHARACTER(1));
+@@ -218,16 +217,6 @@ getPtrValueWithRef(USER_OBJECT_ sval)
+ 
+ /* enum and flag stuff - experimental */
+ 
+-gint
+-R_asEnum(USER_OBJECT_ s_enum, USER_OBJECT_ etype)
+-{
+-    GType type = g_type_from_name(asCString(etype));
+-    if (!type) {
+-        PROBLEM "Invalid enum type %s", asCString(etype)
+-        ERROR;
+-    }
+-    return(asCEnum(s_enum, type));
+-}
+ gint
+ asCEnum(USER_OBJECT_ s_enum, GType etype)
+ {
+@@ -239,8 +228,7 @@ asCEnum(USER_OBJECT_ s_enum, GType etype)
+         eval = asCInteger(s_enum);
+         evalue = g_enum_get_value(eclass, eval);
+         if (evalue == NULL) {
+-          PROBLEM "Could not map to enum value %d", asCInteger(s_enum)
+-            ERROR;
++	    Rf_error("Could not map to enum value %d", asCInteger(s_enum));
+         }
+     } else if (IS_CHARACTER(s_enum)) {
+         const gchar* ename = asCString(s_enum);
+@@ -248,8 +236,7 @@ asCEnum(USER_OBJECT_ s_enum, GType etype)
+         if (evalue == NULL)
+             evalue = g_enum_get_value_by_nick(eclass, ename);
+         if (evalue == NULL) {
+-          PROBLEM "Could not parse enum value %s", asCString(s_enum)
+-            ERROR;
++	    Rf_error("Could not parse enum value %s", asCString(s_enum));
+         }
+     }
+ 
+@@ -257,16 +244,6 @@ asCEnum(USER_OBJECT_ s_enum, GType etype)
+     return(eval);
+ }
+ 
+-guint
+-R_asFlag(USER_OBJECT_ s_flag, USER_OBJECT_ ftype)
+-{
+-    GType type = g_type_from_name(asCString(ftype));
+-    if (!type) {
+-        PROBLEM "Invalid flag type %s", asCString(ftype)
+-        ERROR;
+-    }
+-    return(asCFlag(s_flag, type));
+-}
+ guint
+ asCFlag(USER_OBJECT_ s_flag, GType ftype)
+ {
+@@ -275,8 +252,7 @@ asCFlag(USER_OBJECT_ s_flag, GType ftype)
+ 
+     if (IS_INTEGER(s_flag) || IS_NUMERIC(s_flag)) {
+         if (asCNumeric(s_flag) > fclass->mask) {
+-            PROBLEM "The flags value %f is too high", asCNumeric(s_flag)
+-            ERROR;
++            Rf_error("The flags value %f is too high", asCNumeric(s_flag));
+         }
+         flags = asCNumeric(s_flag);
+     } else {
+@@ -292,8 +268,7 @@ asCFlag(USER_OBJECT_ s_flag, GType ftype)
+                 continue;
+             }
+             if (!fvalue) {
+-                PROBLEM "Could not find flag by name %s", fname
+-                ERROR;
++                Rf_error("Could not find flag by name %s", fname);
+             }
+             /*Rprintf("Found: %d\n", fvalue->value);*/
+             flags |= fvalue->value;
+diff --git a/RGtk2/src/gdkManuals.c b/RGtk2/src/gdkManuals.c
+index 6de83fa5..e65d8f16 100644
+--- a/RGtk2/src/gdkManuals.c
++++ b/RGtk2/src/gdkManuals.c
+@@ -218,9 +218,8 @@ S_GdkEventClientGetData(USER_OBJECT_ s_obj)
+         size = 5;
+         val = (int *)obj->data.l;
+     } else {
+-		PROBLEM "Unknown data_format %d in GdkEventClient", data_format
+-		ERROR;
+-	}
++	Rf_error("Unknown data_format %d in GdkEventClient", data_format);
++    }
+ 
+     _result = asRIntegerArrayWithSize(val, size);
+ 
+diff --git a/RGtk2/src/glib.c b/RGtk2/src/glib.c
+index a97f08a0..dbb608c2 100644
+--- a/RGtk2/src/glib.c
++++ b/RGtk2/src/glib.c
+@@ -198,8 +198,7 @@ R_gQuarkFromString(USER_OBJECT_ s_string)
+ GQuark
+ asCGQuark(USER_OBJECT_ sobj) {
+   if (!inherits(sobj, "GQuark")) {
+-    PROBLEM "invalid GQuark value"
+-      ERROR;
++      Rf_error("invalid GQuark value");
+   }
+   return (GQuark)asInteger(sobj);
+ }
+diff --git a/RGtk2/src/gobject.c b/RGtk2/src/gobject.c
+index e0c602ac..029163e9 100644
+--- a/RGtk2/src/gobject.c
++++ b/RGtk2/src/gobject.c
+@@ -52,8 +52,7 @@ R_getGObjectTypeAncestors(USER_OBJECT_ sobj)
+ 
+   obj = G_OBJECT(getPtrValue(sobj));
+   if(!G_IS_OBJECT(obj)) {
+-   PROBLEM "Non-GObject passed to getObjectTypeHierarchy"
+-   ERROR;
++      Rf_error("Non-GObject passed to getObjectTypeHierarchy");
+   }
+   type = G_OBJECT_TYPE(obj);
+ 
+@@ -110,8 +109,7 @@ R_gTypeFromName(USER_OBJECT_ name)
+     type = g_type_from_name(val);
+ 
+     if( type == G_TYPE_INVALID) {
+-      PROBLEM "No type for %s", val
+-      ERROR;
++	Rf_error("No type for %s", val);
+     }
+ 
+     return(asRGType(type));
+@@ -135,8 +133,7 @@ R_gObjectType(USER_OBJECT_ sobj)
+ GType
+ asCGType(USER_OBJECT_ sobj) {
+   if (!inherits(sobj, "GType")) {
+-    PROBLEM "invalid GType value"
+-      ERROR;
++      Rf_error("invalid GType value");
+   }
+ return (GType)getPtrValue(sobj);
+ }
+@@ -149,8 +146,7 @@ asRGType(GType type)
+ 
+     name = g_type_name(type);
+     if(!name) {
+-      PROBLEM "object has no G type"
+-      ERROR;
++	Rf_error("object has no G type");
+     }
+     
+     PROTECT(ans = R_MakeExternalPtr((void *)type, R_NilValue, R_NilValue));
+@@ -250,9 +246,8 @@ R_setGValueForProperty(GValue *value, GObjectClass *class, const gchar *property
+ 	GParamSpec *spec = g_object_class_find_property(class, property_name);
+ 	
+ 	if (!spec) {
+-		PROBLEM "Invalid property %s!\n", property_name
+-		ERROR;
+-    }
++	    Rf_error("Invalid property %s!\n", property_name);
++	}
+     g_value_init(value, G_PARAM_SPEC_VALUE_TYPE(spec));
+     R_setGValueFromSValue(value, s_value);
+ 	
+@@ -283,9 +278,8 @@ S_g_object_get_property(USER_OBJECT_ s_object, USER_OBJECT_ s_property_name)
+     GValue value = { 0, };
+ 
+ 		if (!spec) {
+-      PROBLEM "Invalid property %s!\n", property_name
+-      ERROR;
+-    }
++		    Rf_error("Invalid property %s!\n", property_name);
++		}
+ 		g_value_init(&value, G_PARAM_SPEC_VALUE_TYPE(spec));
+     g_object_get_property(object, property_name, &value);
+     _result = asRGValue(&value);
+@@ -923,9 +917,8 @@ R_connectGSignalHandler(USER_OBJECT_ swidget, USER_OBJECT_ sfunc, USER_OBJECT_ s
+ 
+     if(id == 0) {
+         g_closure_sink(closure);
+-        PROBLEM "Couldn't register callback %s. Check name",
+-                      asCString(signalName)
+-        ERROR;
++        Rf_error("Couldn't register callback %s. Check name",
++		 asCString(signalName));
+     }
+ 
+     PROTECT(ans = NEW_INTEGER(1));
+@@ -1064,9 +1057,7 @@ R_getGSignalIdsByType(USER_OBJECT_ className)
+ 
+     type = (GType)  asCGType(className);
+     if(type == 0 || type == G_TYPE_INVALID) {
+-    PROBLEM "No type for class %s",
+-        asCString(className)
+-        ERROR;
++	Rf_error("No type for class %s", asCString(className));
+     }
+     return(R_internal_getGSignalIds(type));
+ }
+@@ -1211,8 +1202,7 @@ R_createCBData(USER_OBJECT_ s_func, USER_OBJECT_ s_data)
+ {
+   R_CallbackData *cbdata = (R_CallbackData*) g_malloc(sizeof(R_CallbackData));
+     if(!cbdata) {
+-        PROBLEM "Cannot allocate space for a measly R_CallbackData!"
+-        ERROR;
++        Rf_error("Cannot allocate space for a measly R_CallbackData!");
+     }
+ 
+     R_PreserveObject(s_func);
+@@ -1353,17 +1343,16 @@ R_setGValueFromSValue(GValue *value, USER_OBJECT_ sval) {
+                   */
+                   /* If we get here, we know that initGValueFromSValue()
+                      found that 'sval' is not an externalptr */
+-                  PROBLEM "Cannot set pointer value from non-externalptr\n"
+-                    ERROR;
++		    Rf_error("Cannot set pointer value from non-externalptr");
+ 		case G_TYPE_INVALID:
+-                  PROBLEM "Attempt to set invalid type\n" ERROR;
++		    Rf_error("Attempt to set invalid type");
+ 		break;
+ 		case G_TYPE_NONE:
+-                  PROBLEM "Attempt to set none type\n" ERROR;
++		    Rf_error("Attempt to set none type");
+ 		break;
+ 		default:
+-			PROBLEM "got an unknown/unhandled type named: %s\n", g_type_name(G_VALUE_TYPE(value))
+-			ERROR;
++		    Rf_error("got an unknown/unhandled type named: %s",
++			     g_type_name(G_VALUE_TYPE(value)));
+ 		break;
+ 	}
+     
+@@ -1524,8 +1513,8 @@ asRGValue(const GValue *value)
+         ans = asRGParamSpec(g_value_get_param(value));
+       break;
+       default:
+-        PROBLEM "got an unknown/unhandled type named: %s\n", G_VALUE_TYPE_NAME(value)
+-        ERROR;
++	  Rf_error("got an unknown/unhandled type named: %s",
++		   G_VALUE_TYPE_NAME(value));
+       break;
+     }
+ 
+@@ -1671,8 +1660,7 @@ asCGValue(USER_OBJECT_ sval)
+ { 
+ 	GValue *gval = createGValueFromSValue(sval);
+ 	if (!gval) {
+-		PROBLEM "Could not create GValue for R type %d\n", TYPEOF(sval)
+-		ERROR;
++	    Rf_error("Could not create GValue for R type %d", TYPEOF(sval));
+ 	}
+ 	return(gval);
+ }
+@@ -1826,8 +1814,7 @@ g_io_condition_get_type (void)
+ USER_OBJECT_
+ comparePointers(SEXP x, SEXP y) {
+     if (TYPEOF(x) != EXTPTRSXP || TYPEOF(y) != EXTPTRSXP)
+-	PROBLEM "'x' and 'y' must be extptrs"
+-	ERROR;
++	Rf_error("'x' and 'y' must be extptrs");
+     return ScalarLogical(R_ExternalPtrAddr(x) == R_ExternalPtrAddr(y));
+ }
+ 
+diff --git a/RGtk2/src/pangoConversion.c b/RGtk2/src/pangoConversion.c
+index 3b82f45a..e3af9700 100644
+--- a/RGtk2/src/pangoConversion.c
++++ b/RGtk2/src/pangoConversion.c
+@@ -71,8 +71,7 @@ toRPangoAttribute(PangoAttribute *attr, gboolean owns)
+ 		 	type = "PangoAttrInvalid";
+ 		 break;
+ 		 default:
+-		 	PROBLEM "Error converting PangoAttribute: unknown type %d", attr->klass->type
+-			ERROR;
++		     Rf_error("Error converting PangoAttribute: unknown type %d", attr->klass->type);
+ 	}
+ 	
+ 	classes[0] = type;
+diff --git a/RGtk2/src/utils.c b/RGtk2/src/utils.c
+index a162914c..5c31f21a 100644
+--- a/RGtk2/src/utils.c
++++ b/RGtk2/src/utils.c
+@@ -50,130 +50,6 @@ retByVal(USER_OBJECT_ retval, ...) {
+     return list;
+ }
+ 
+-/**
+-
+- The idea is that the `val' argument is either an integer
+- or a string. If it is an integer, we check that it is a
+- value in the array cValues[] array.
+- If it is a string, we look through the two arrays of names
+- (the real names from the header files and the local names/aliases
+-  from the .defs files from which the enumerations are built.)
+-
+-  If the value is matched, the associated integer is returned.
+-
+- */
+- /* not used 
+-USER_OBJECT_
+-S_checkEnum(USER_OBJECT_ val, const char *const localNames[], const char *const realNames[],
+-                          const int cValues[], int len, const char *const enumName)
+-{
+-    int i = 0;
+-    USER_OBJECT_ names, ans = NULL_USER_OBJECT;
+-    if(IS_INTEGER(val) || IS_NUMERIC(val)) {
+-        int cval;
+-        if(IS_INTEGER(val))
+-            cval = INTEGER_DATA(val)[0];
+-        else
+-            cval = NUMERIC_DATA(val)[0];
+-    for(i = 0; i < len ; i++) {
+-        if(cValues[i] == cval) {
+-        ans = val;
+-        break;
+-        }
+-    }
+-        if(i == len) {
+-          PROBLEM "Invalid enum value: %d", INTEGER_DATA(val)[0]
+-          ERROR;
+-    }
+-    } else if(IS_CHARACTER(val)) {
+-    char *tmp = CHAR_DEREF(STRING_ELT(val, 0));
+-    for(i = 0; i < len; i++) {
+-        if(strcmp(tmp, localNames[i]) == 0 || strcmp(tmp, realNames[i]) == 0) {
+-            PROTECT(ans = NEW_INTEGER(1));
+-            INTEGER_DATA(ans)[0] = cValues[i];
+-            break;
+-        }
+-    }
+-    if(i == len) {
+-          PROBLEM "Invalid enum name: %s", tmp
+-          ERROR;
+-    }
+-    } else {
+-         PROBLEM "Invalid argument type (%d) passed to S_checkEnum.",
+-            TYPEOF(val)
+-     ERROR;
+-    }
+-
+-    PROTECT(names = NEW_CHARACTER(1));
+-    SET_STRING_ELT(names, 0, COPY_TO_USER_STRING(realNames[i]));
+-    SET_NAMES(ans, names);
+-
+-    PROTECT(names = NEW_CHARACTER(2));
+-    SET_STRING_ELT(names, 0, COPY_TO_USER_STRING(enumName));
+-    SET_STRING_ELT(names, 1, COPY_TO_USER_STRING("enum"));
+-    SET_CLASS(ans, names);
+-
+-    UNPROTECT(ans == val ? 2 : 3);
+-
+-    return(ans);
+-}
+-*/
+-
+-/**
+-  val can be an integer or a character vector.
+-  If it is a character vector, we build up the actual value by
+-  OR'ing the values in cValues[] by matching the elements in the vector
+-  with the elements in localNames or realNames.
+- */
+-/* not used
+-USER_OBJECT_
+-S_checkFlag(USER_OBJECT_ val, const char *const localNames[], const char *const realNames[],
+-                          const int cValues[], int len, const char *const flagName)
+-{
+-    int i, j, n;
+-    USER_OBJECT_ ans, names;
+-    int numProtects = 0;
+-    n = GET_LENGTH(val);
+-
+-    if(IS_INTEGER(val)) {
+-    for(i = 0; i < n ; i++) {
+-        for(j = 0; j < len; j++) {
+-        if(!(cValues[j] | INTEGER_DATA(val)[i]))
+-           PROBLEM "incorrect flag value: %d", INTEGER_DATA(val)[0]
+-           ERROR;
+-        }
+-    }
+-        ans = val;
+-    } else {
+-    int value = 0;
+-    for(i = 0; i < n; i++) {
+-        char *tmp = CHAR_DEREF(STRING_ELT(val, i));
+-            for(j = 0; j < len; j++)
+-        if(strcmp(tmp, localNames[j]) == 0 || strcmp(tmp, realNames[j]) == 0) {
+-        value = value | cValues[j];
+-                break;
+-        }
+-            if(j == len) {
+-               PROBLEM "Invalid flag name: %s", tmp
+-               ERROR;
+-        }
+-    }
+-        PROTECT(ans = NEW_INTEGER(1));
+-        numProtects = 1;
+-        INTEGER_DATA(ans)[0] = value;
+-   }
+-
+-    PROTECT(names = NEW_CHARACTER(2));
+-    SET_STRING_ELT(names, 0, COPY_TO_USER_STRING(flagName));
+-    SET_STRING_ELT(names, 1, COPY_TO_USER_STRING("flag"));
+-    SET_CLASS(ans, names);
+-
+-    UNPROTECT(numProtects + 1);
+-
+-    return(ans);
+-}
+-*/
+-
+ /* Generic callback stuff */
+ void R_freeCBData(R_CallbackData *cbdata) {
+     R_ReleaseObject(cbdata->function);
+-- 
+2.38.0
+
